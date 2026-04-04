@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "demo-app",
+      "runtimeExecutable": "/usr/local/bin/node",
+      "runtimeArgs": ["node_modules/.bin/vite", "--port", "3000", "--host"],
+      "port": 3000,
+      "cwd": "demo-app"
+    }
+  ]
+}

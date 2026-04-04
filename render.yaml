@@ -8,8 +8,16 @@ services:
     envVars:
       - key: DEMO_MODE
         value: "true"
-      - key: PORT
-        value: "8001"
+
+  - type: web
+    name: fiserv-agent-pay
+    runtime: node
+    rootDir: prototype-2-agent-pay/gateway
+    buildCommand: npm install
+    startCommand: node src/index.js
+    envVars:
+      - key: DEMO_MODE
+        value: "true"
 
   - type: web
     name: fiserv-supplier-pay
@@ -20,8 +28,6 @@ services:
     envVars:
       - key: DEMO_MODE
         value: "true"
-      - key: PORT
-        value: "8003"
 
   - type: web
     name: fiserv-cross-border
@@ -32,5 +38,3 @@ services:
     envVars:
       - key: DEMO_MODE
         value: "true"
-      - key: PORT
-        value: "8004"

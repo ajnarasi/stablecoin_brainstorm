@@ -20,17 +20,13 @@ const productRoutes = require("./routes/products");
 const x402Routes = require("./routes/x402");
 
 const app = express();
-const PORT = process.env.GATEWAY_PORT || 8002;
+const PORT = process.env.PORT || process.env.GATEWAY_PORT || 8002;
 
 // --- Security middleware ---
 app.use(helmet());
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:5173",
-      "http://localhost:8002",
-    ],
+    origin: true,  // Allow all origins for demo deployment
     exposedHeaders: ["X-PAYMENT", "X-PAYMENT-RESPONSE"],
     allowedHeaders: ["Content-Type", "Authorization", "X-PAYMENT"],
   })
@@ -57,8 +53,8 @@ app.use(
 // --- Body parsing ---
 app.use(express.json({ limit: "1mb" }));
 
-// --- Health check ---
-app.get("/health", (req, res) => {
+// --- Health check (both /health and /api/health) ---
+const healthHandler = (req, res) => {
   res.json({
     status: "healthy",
     service: "x402-gateway",
@@ -66,7 +62,9 @@ app.get("/health", (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
   });
-});
+};
+app.get("/health", healthHandler);
+app.get("/api/health", healthHandler);
 
 // --- Routes ---
 app.use("/api/products", productRoutes);
