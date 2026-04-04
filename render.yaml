@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: fiserv-yield-sweep
+    runtime: python
+    rootDir: prototype-1-yield-sweep/backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: python run.py
+    envVars:
+      - key: DEMO_MODE
+        value: "true"
+      - key: PORT
+        value: "8001"
+
+  - type: web
+    name: fiserv-supplier-pay
+    runtime: python
+    rootDir: prototype-3-supplier-pay/backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: python run.py
+    envVars:
+      - key: DEMO_MODE
+        value: "true"
+      - key: PORT
+        value: "8003"
+
+  - type: web
+    name: fiserv-cross-border
+    runtime: python
+    rootDir: prototype-4-cross-border/backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: python run.py
+    envVars:
+      - key: DEMO_MODE
+        value: "true"
+      - key: PORT
+        value: "8004"

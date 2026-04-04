@@ -1,0 +1,19 @@
+{
+  "name": "@fiserv/x402-verifier",
+  "version": "0.1.0",
+  "description": "x402 Payment Signature Verification Service",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test tests/"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.90.0",
+    "dotenv": "^16.4.0",
+    "ethers": "^6.11.0",
+    "express": "^4.18.2",
+    "tweetnacl": "^1.0.3",
+    "uuid": "^9.0.0"
+  }
+}

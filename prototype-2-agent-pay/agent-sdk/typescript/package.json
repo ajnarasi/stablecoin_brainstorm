@@ -1,0 +1,24 @@
+{
+  "name": "@fiserv/agent-pay",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for AI agents to make x402 payments via Fiserv",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "node --test tests/"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.90.0",
+    "ethers": "^6.11.0",
+    "tweetnacl": "^1.0.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "@types/node": "^20.11.0"
+  },
+  "files": [
+    "dist/"
+  ]
+}

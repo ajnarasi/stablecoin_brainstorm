@@ -1,0 +1,17 @@
+{
+  "name": "@fiserv/prototype-2-agent-pay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pay-by-Agent x402 Commerce Prototype - AI agents purchasing from merchants via stablecoin payments",
+  "scripts": {
+    "install:all": "npm install --prefix gateway && npm install --prefix verifier && npm install --prefix settler && npm install --prefix demo-agent && npm install --prefix dashboard && cd agent-sdk/typescript && npm install",
+    "gateway": "npm start --prefix gateway",
+    "verifier": "npm start --prefix verifier",
+    "settler": "npm start --prefix settler",
+    "agent": "npm start --prefix demo-agent",
+    "agent:demo": "npm run demo --prefix demo-agent",
+    "dashboard": "npm run dev --prefix dashboard",
+    "services": "node scripts/start-services.js",
+    "dev": "echo 'Run in separate terminals: npm run gateway | npm run verifier | npm run settler | npm run dashboard'"
+  }
+}
