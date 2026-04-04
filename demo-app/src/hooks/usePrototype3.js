@@ -28,7 +28,7 @@ export function usePrototype3(addTrace) {
       const res = await fetch(`${BASE}/demo/seed`, { method: 'POST' });
       if (!res.ok) throw new Error(`Seed failed: ${res.status}`);
       const json = await res.json();
-      addTrace('system', `Seed complete: ${json.salesGenerated || 'N/A'} sales records, ${json.ingredientsTracked || 'N/A'} ingredients tracked`);
+      addTrace('system', `Seed complete: status = ${json.status}`);
       addTrace('result', 'Demo data seeded successfully - Mario\'s Pizzeria ready');
       setData((prev) => ({ ...prev, seed: json }));
       return json;
@@ -71,20 +71,20 @@ export function usePrototype3(addTrace) {
       addTrace('system', 'ML Model: Analyzing ingredient depletion patterns...');
       await delay(300);
 
-      const invData = json.inventory || json;
-      const ingredients = invData.ingredients || json.evaluation || [];
-      const critical = ingredients.filter((i) => i.status === 'CRITICAL' || i.status === 'critical');
-      const low = ingredients.filter((i) => i.status === 'LOW' || i.status === 'low');
-      const ok = ingredients.filter((i) => i.status === 'OK' || i.status === 'ok');
+      // API returns { inventory: { ingredients: [...] }, predictions: {...} }
+      const ingredients = json.inventory?.ingredients || [];
+      const critical = ingredients.filter((i) => i.status === 'CRITICAL');
+      const low = ingredients.filter((i) => i.status === 'LOW');
+      const ok = ingredients.filter((i) => i.status === 'OK');
 
       critical.forEach((ing) => {
-        addTrace('system', `ML Model: ${ing.name || ing.ingredient} depleting in ${ing.daysUntilDepletion || '?'} days (CRITICAL)`);
+        addTrace('system', `ML Model: ${ing.name} depleting in ${ing.days_until_reorder != null ? ing.days_until_reorder : '?'} days (CRITICAL)`);
       });
       low.forEach((ing) => {
-        addTrace('system', `ML Model: ${ing.name || ing.ingredient} depleting in ${ing.daysUntilDepletion || '?'} days (LOW)`);
+        addTrace('system', `ML Model: ${ing.name} depleting in ${ing.days_until_reorder != null ? ing.days_until_reorder : '?'} days (LOW)`);
       });
       ok.forEach((ing) => {
-        addTrace('system', `ML Model: ${ing.name || ing.ingredient} depleting in ${ing.daysUntilDepletion || '?'} days (OK - monitoring)`);
+        addTrace('system', `ML Model: ${ing.name} depleting in ${ing.days_until_reorder != null ? ing.days_until_reorder : '?'} days (OK - monitoring)`);
       });
 
       addTrace('result', `Evaluation complete: ${critical.length} critical, ${low.length} low, ${ok.length} OK`);
@@ -112,22 +112,16 @@ export function usePrototype3(addTrace) {
       if (!res.ok) throw new Error(`Auto-order failed: ${res.status}`);
       const json = await res.json();
 
-      const predictions = json.predictions || [];
-      for (const p of predictions) {
-        const status = p.status || 'OK';
-        addTrace('system', `ML Model: ${p.ingredient || p.name} depleting in ${p.daysUntilDepletion || '?'} days (${status})`);
-        await delay(200);
-      }
-
       addTrace('system', 'Procurement Agent: Generating purchase orders...');
       await delay(300);
 
-      const orders = json.purchase_orders || json.purchaseOrders || json.orders || [];
+      // API returns { purchase_orders: [...], payments: [...], total_savings, message }
+      const orders = json.purchase_orders || [];
       for (const po of orders) {
-        const lineItems = po.line_items || po.items || [];
-        const items = lineItems.map((it) => `${it.name || it.ingredient_name || it.ingredient || ''} ${it.quantity || ''}`).join(' + ');
-        const total = po.total_amount || po.totalCost || po.total || 0;
-        addTrace('system', `PO #${po.id || po.poNumber}: ${po.supplier_name || po.supplierName || po.supplier} - ${items} = $${Number(total).toFixed(2)}`);
+        const lineItems = po.line_items || [];
+        const items = lineItems.map((it) => `${it.ingredient_name || ''} x${it.quantity || ''}`).join(' + ');
+        const total = Number(po.total_amount) || 0;
+        addTrace('system', `PO #${po.id}: ${po.supplier_name} - ${items} = $${total.toFixed(2)}`);
         await delay(200);
       }
 
@@ -135,32 +129,31 @@ export function usePrototype3(addTrace) {
         addTrace('system', 'Procurement Agent: Applying early-pay discount (2% for payment within 24h)...');
         await delay(200);
         for (const po of orders) {
-          const disc = po.discount_amount || po.discountAmount || po.discount || 0;
+          const disc = Number(po.discount_amount) || 0;
           if (disc > 0) {
-            addTrace('system', `Discount captured: $${Number(disc).toFixed(2)} on PO #${po.id || po.poNumber}`);
+            addTrace('system', `Discount captured: $${disc.toFixed(2)} on PO #${po.id}`);
           }
         }
       }
 
       for (const po of orders) {
         await delay(300);
-        const supplier = po.supplier_name || po.supplierName || po.supplier;
-        const amount = po.total_amount || po.netAmount || po.totalCost || po.total || 0;
-        addTrace('api', `Finxact: Executing FIUSD transfer - Merchant -> ${supplier}`);
-        addTrace('system', `Finxact: Debit ${MERCHANT}: $${Number(amount).toFixed(2)} FIUSD`);
-        addTrace('system', `Finxact: Credit ${po.supplier_id || po.supplierId || 'SUP'}: $${Number(amount).toFixed(2)} FIUSD`);
+        const amount = Number(po.net_amount) || Number(po.total_amount) || 0;
+        addTrace('api', `Finxact: Executing FIUSD transfer - Merchant -> ${po.supplier_name}`);
+        addTrace('system', `Finxact: Debit ${MERCHANT}: $${amount.toFixed(2)} FIUSD`);
+        addTrace('system', `Finxact: Credit ${po.supplier_id || 'SUP'}: $${amount.toFixed(2)} FIUSD`);
         await delay(200);
-        addTrace('system', `INDX: Settling ${supplier} in USD...`);
+        addTrace('system', `INDX: Settling ${po.supplier_name} in USD...`);
         await delay(400);
-        const settlementTime = (po.settlement_time || po.settlementTime || (2 + Math.random() * 1.5)).toFixed(1);
-        addTrace('result', `Settlement complete: ${supplier} received $${Number(amount).toFixed(2)} USD in ${settlementTime} seconds`);
+        const settlementTime = (2 + Math.random() * 1.5).toFixed(1);
+        addTrace('result', `Settlement complete: ${po.supplier_name} received $${amount.toFixed(2)} USD in ${settlementTime} seconds`);
       }
 
-      const totalPaid = orders.reduce((sum, po) => sum + Number(po.total_amount || po.netAmount || po.totalCost || po.total || 0), 0);
-      const totalDiscount = orders.reduce((sum, po) => sum + Number(po.discount_amount || po.discountAmount || po.discount || 0), 0);
-      const cardFeesSaved = json.card_fees_saved || json.cardFeesSaved || (totalPaid * 0.029).toFixed(2);
+      const totalPaid = orders.reduce((sum, po) => sum + (Number(po.total_amount) || 0), 0);
+      const totalDiscount = orders.reduce((sum, po) => sum + (Number(po.discount_amount) || 0), 0);
+      const totalSavings = Number(json.total_savings) || 0;
 
-      addTrace('result', `Total: ${orders.length} POs, $${totalPaid.toFixed(2)} paid, $${totalDiscount.toFixed(2)} saved in discounts, $${cardFeesSaved} card fees eliminated`);
+      addTrace('result', `Total: ${orders.length} POs, $${totalPaid.toFixed(2)} paid, $${totalDiscount.toFixed(2)} saved in discounts, $${totalSavings.toFixed(2)} total savings`);
 
       setData((prev) => ({ ...prev, autoOrder: json }));
       return json;
@@ -180,7 +173,7 @@ export function usePrototype3(addTrace) {
       const res = await fetch(`${BASE}/merchants/${MERCHANT}/savings`);
       if (!res.ok) throw new Error(`Savings failed: ${res.status}`);
       const json = await res.json();
-      addTrace('result', `Savings report loaded: $${(json.totalSavings || json.monthlySavings || 0).toFixed(2)} total savings`);
+      addTrace('result', `Savings report loaded: $${Number(json.total_savings || 0).toFixed(2)} total savings`);
       setData((prev) => ({ ...prev, savings: json }));
       return json;
     } catch (err) {

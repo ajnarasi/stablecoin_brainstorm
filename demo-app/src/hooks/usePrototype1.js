@@ -63,25 +63,29 @@ export function usePrototype1(addTrace) {
         description: "Mario's Pizzeria (DEMO_MERCHANT_001)",
       })
       const result = await apiCall('POST', '/demo/seed', {})
+
+      // API returns: { merchant_id, transactions_created, days_seeded, model_trained }
       addTrace({
         type: 'system',
         title: 'Finxact: Creating merchant account',
-        description: 'Initial balance: $25,000.00',
+        description: `Merchant ID: ${result.merchant_id}`,
       })
       addTrace({
         type: 'system',
         title: 'Generating settlement history',
-        description: '180 days of synthetic CommerceHub transaction data',
+        description: `${result.days_seeded} days of synthetic CommerceHub transaction data (${result.transactions_created} transactions)`,
       })
       addTrace({
         type: 'system',
         title: 'ML Model: Training cash flow predictor',
-        description: 'LightGBM on 180-day rolling window with day-of-week + seasonality features',
+        description: result.model_trained
+          ? 'LightGBM trained successfully on rolling window with day-of-week + seasonality features'
+          : 'Model training pending',
       })
       addTrace({
         type: 'result',
         title: 'Demo seeded successfully',
-        description: `Merchant: Mario's Pizzeria | Balance: $${(result.balance || 25000).toLocaleString()}`,
+        description: `Merchant: ${result.merchant_id} | ${result.transactions_created} transactions over ${result.days_seeded} days`,
       })
       setData(result)
       return result
@@ -97,13 +101,38 @@ export function usePrototype1(addTrace) {
     setError(null)
     try {
       const result = await apiCall('GET', `/merchants/${MERCHANT}/dashboard`)
+
+      // API returns STRING decimals: current_balance, fiusd_position, total_value
+      // earnings: { current_principal, total_accrued, total_value, current_apy, daily_earnings_rate, accrual_history }
+      const currentBalance = parseFloat(result.current_balance) || 0
+      const fiusdPosition = parseFloat(result.fiusd_position) || 0
+      const apy = parseFloat(result.earnings?.current_apy) || 0
+      const dailyEarningsRate = parseFloat(result.earnings?.daily_earnings_rate) || 0
+      const totalAccrued = parseFloat(result.earnings?.total_accrued) || 0
+      const monthlyEarnings = dailyEarningsRate * 30
+
       addTrace({
         type: 'system',
         title: 'Finxact: Loaded merchant dashboard',
-        description: `Balance: $${(result.availableBalance || 0).toLocaleString()} | Yield: $${(result.yieldPosition || 0).toLocaleString()} | APY: ${result.apy || 4.2}%`,
+        description: `Balance: $${currentBalance.toLocaleString()} | FIUSD Position: $${fiusdPosition.toLocaleString()} | APY: ${(apy * 100).toFixed(1)}%`,
       })
-      setData(result)
-      return result
+
+      // Normalize into a shape the component can use directly
+      const normalized = {
+        ...result,
+        currentBalance,
+        fiusdPosition,
+        apy: apy * 100, // convert decimal to percentage
+        dailyEarningsRate,
+        totalAccrued,
+        monthlyEarnings,
+        accrualHistory: result.earnings?.accrual_history || [],
+        recentSweeps: result.recent_sweeps || [],
+        merchant: result.merchant,
+      }
+
+      setData(normalized)
+      return normalized
     } catch (err) {
       setError(err.message)
     } finally {
@@ -120,12 +149,24 @@ export function usePrototype1(addTrace) {
         title: 'Finxact: Retrieving merchant balance...',
       })
 
-      const evalResult = await apiCall('POST', `/merchants/${MERCHANT}/sweeps/evaluate`, {})
+      const result = await apiCall('POST', '/demo/trigger-sweep', {})
 
-      const balance = evalResult.currentBalance || 23450
+      // API returns STRING decimals: current_balance, predicted_outflows, safety_buffer,
+      // hard_floor, excess_available, ramp_pct, fiusd_position
+      // decision: { id, merchant_id, prediction_id, proposed_amount, decision, reason }
+      const currentBalance = parseFloat(result.current_balance) || 0
+      const predictedOutflows = parseFloat(result.predicted_outflows) || 0
+      const hardFloor = parseFloat(result.hard_floor) || 0
+      const excessAvailable = parseFloat(result.excess_available) || 0
+      const rampPct = parseFloat(result.ramp_pct) || 0
+      const fiusdPosition = parseFloat(result.fiusd_position) || 0
+      const proposedAmount = parseFloat(result.decision?.proposed_amount) || 0
+      const decisionResult = result.decision?.decision || 'DENIED' // APPROVED or DENIED
+      const reason = result.decision?.reason || ''
+
       addTrace({
         type: 'system',
-        title: `Finxact: Current balance = $${balance.toLocaleString()}`,
+        title: `Finxact: Current balance = $${currentBalance.toLocaleString()}`,
       })
 
       addTrace({
@@ -133,12 +174,9 @@ export function usePrototype1(addTrace) {
         title: 'ML Model: Predicting 3-day outflows...',
       })
 
-      const predicted = evalResult.predictedOutflows || 15200
-      const confidence = evalResult.confidence || 87
       addTrace({
         type: 'system',
-        title: `ML Model: Predicted outflows = $${predicted.toLocaleString()}`,
-        description: `Confidence: ${confidence}%`,
+        title: `ML Model: Predicted outflows = $${predictedOutflows.toLocaleString()}`,
       })
 
       addTrace({
@@ -146,30 +184,26 @@ export function usePrototype1(addTrace) {
         title: 'Decision Gate: Checking safeguards...',
       })
 
-      const hardFloor = evalResult.hardFloor || 18240
       addTrace({
         type: 'system',
         title: `Decision Gate: Hard floor = $${hardFloor.toLocaleString()}`,
         description: 'Historical max daily outflow + 20% buffer',
       })
 
-      const excess = evalResult.excessAvailable || (balance - hardFloor)
       addTrace({
         type: 'system',
-        title: `Decision Gate: Excess available = $${excess.toLocaleString()}`,
+        title: `Decision Gate: Excess available = $${excessAvailable.toLocaleString()}`,
       })
 
-      if (evalResult.approved !== false && excess > 0) {
-        const rampPct = evalResult.rampPercent || 15
-        const sweepAmount = evalResult.sweepAmount || (excess * rampPct / 100)
+      if (decisionResult === 'APPROVED') {
         addTrace({
           type: 'system',
-          title: `Decision Gate: Gradual ramp (month 3) = ${rampPct}% of excess`,
-          description: `Sweep amount = $${sweepAmount.toFixed(2)}`,
+          title: `Decision Gate: Ramp = ${(rampPct * 100).toFixed(0)}% of excess`,
+          description: `Sweep amount = $${proposedAmount.toFixed(2)}`,
         })
         addTrace({
           type: 'result',
-          title: `Sweep APPROVED: $${sweepAmount.toFixed(2)} to FIUSD yield position`,
+          title: `Sweep APPROVED: $${proposedAmount.toFixed(2)} to FIUSD yield position`,
         })
 
         addTrace({
@@ -177,35 +211,38 @@ export function usePrototype1(addTrace) {
           title: 'Finxact: Executing position transfer...',
         })
 
-        try {
-          await apiCall('POST', '/demo/trigger-sweep', {})
-        } catch {
-          // trigger-sweep endpoint may not exist in all backends
-        }
-
-        const apy = evalResult.apy || 4.2
         addTrace({
           type: 'system',
-          title: `INDX: Settlement confirmed | APY: ${apy}%`,
+          title: 'INDX: Settlement confirmed',
         })
 
-        const newPosition = evalResult.newYieldPosition || (sweepAmount + (evalResult.yieldPosition || 0))
-        const projectedMonthly = evalResult.projectedMonthly || (newPosition * apy / 100 / 12)
         addTrace({
           type: 'result',
           title: 'Sweep complete',
-          description: `New yield position: $${newPosition.toFixed(2)} | Projected monthly earnings: $${projectedMonthly.toFixed(2)}`,
+          description: `FIUSD position: $${fiusdPosition.toFixed(2)} | Reason: ${reason}`,
         })
       } else {
-        const reason = evalResult.reason || 'Insufficient excess above safety floor'
         addTrace({
           type: 'result',
           title: `Sweep DENIED: ${reason}`,
         })
       }
 
-      setData(evalResult)
-      return evalResult
+      // Normalize for the component
+      const normalized = {
+        decision: decisionResult,
+        proposedAmount,
+        reason,
+        currentBalance,
+        predictedOutflows,
+        hardFloor,
+        excessAvailable,
+        rampPct,
+        fiusdPosition,
+      }
+
+      setData(normalized)
+      return normalized
     } catch (err) {
       setError(err.message)
     } finally {

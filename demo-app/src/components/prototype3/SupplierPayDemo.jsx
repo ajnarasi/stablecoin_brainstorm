@@ -4,20 +4,21 @@ import AnimatedCounter from '../shared/AnimatedCounter';
 export default function SupplierPayDemo({ proto }) {
   const { seed, evaluateInventory, triggerAutoOrder, getSavings, loading, data, error } = proto;
 
-  const dashboard = data.dashboard;
   const evaluation = data.evaluation;
   const autoOrder = data.autoOrder;
   const savings = data.savings;
 
-  // Handle both camelCase and snake_case from API
-  const invData = evaluation?.inventory || evaluation;
-  const ingredients = invData?.ingredients || evaluation?.evaluation || [];
-  const orders = autoOrder?.purchase_orders || autoOrder?.purchaseOrders || autoOrder?.orders || [];
+  // API returns { inventory: { ingredients: [...] } } from evaluate endpoint
+  const ingredients = evaluation?.inventory?.ingredients || [];
 
-  const monthlySavings = Number(savings?.monthly_savings || savings?.monthlySavings || autoOrder?.total_savings || autoOrder?.monthlySavings) || 0;
-  const discountsCaptured = Number(savings?.discounts_captured || savings?.discountsCaptured || autoOrder?.total_discounts || autoOrder?.totalDiscounts) || 0;
-  const cardFeesEliminated = Number(savings?.card_fees_eliminated || savings?.cardFeesEliminated || autoOrder?.card_fees_saved || autoOrder?.cardFeesSaved) || 0;
-  const avgSettlement = Number(savings?.avg_settlement_time || savings?.avgSettlementTime || autoOrder?.avg_settlement_time || autoOrder?.avgSettlementTime) || 0;
+  // API returns { purchase_orders: [...] } from auto-order endpoint
+  const orders = autoOrder?.purchase_orders || [];
+
+  // Savings: prefer savings endpoint data, fall back to autoOrder data
+  const monthlySavings = Number(savings?.total_savings ?? autoOrder?.total_savings) || 0;
+  const discountsCaptured = Number(savings?.total_early_pay_discounts) || 0;
+  const cardFeesEliminated = Number(savings?.total_card_fee_savings) || 0;
+  const avgSettlement = Number(savings?.avg_payment_speed_hours) || 0;
 
   return (
     <div className="demo-layout">
@@ -79,7 +80,7 @@ export default function SupplierPayDemo({ proto }) {
         />
         <StatCard
           label="Avg Settlement Time"
-          value={avgSettlement ? <AnimatedCounter value={avgSettlement} suffix="s" decimals={1} /> : '--'}
+          value={avgSettlement ? <AnimatedCounter value={avgSettlement} suffix="h" decimals={1} /> : '--'}
           subValue="vs. 3-5 business days"
           color="var(--color-teal)"
         />
@@ -90,14 +91,14 @@ export default function SupplierPayDemo({ proto }) {
           <h3 className="section-title">Inventory Status</h3>
           <div className="inventory-grid">
             {ingredients.map((ing, i) => {
-              const name = ing.name || ing.ingredient || `Ingredient ${i + 1}`;
+              const name = ing.name || `Ingredient ${i + 1}`;
               const status = (ing.status || 'OK').toUpperCase();
               const statusClass =
                 status === 'CRITICAL' ? 'inventory-card--critical' :
                 status === 'LOW' ? 'inventory-card--low' :
                 'inventory-card--ok';
               return (
-                <div key={`${name}-${i}`} className={`inventory-card ${statusClass}`}>
+                <div key={`${ing.ingredient_id || name}-${i}`} className={`inventory-card ${statusClass}`}>
                   <div className="inventory-card__header">
                     <span className="inventory-card__name">{name}</span>
                     <span className={`inventory-card__badge inventory-card__badge--${status.toLowerCase()}`}>
@@ -107,16 +108,16 @@ export default function SupplierPayDemo({ proto }) {
                   <div className="inventory-card__details">
                     <div className="inventory-card__row">
                       <span>Current Stock</span>
-                      <strong>{ing.currentStock || ing.stock || '?'} {ing.unit || ''}</strong>
+                      <strong>{ing.current_stock != null ? ing.current_stock : '?'} {ing.unit || ''}</strong>
                     </div>
                     <div className="inventory-card__row">
                       <span>Reorder Point</span>
-                      <strong>{ing.reorderPoint || ing.reorder || '?'} {ing.unit || ''}</strong>
+                      <strong>{ing.reorder_point != null ? ing.reorder_point : '?'} {ing.unit || ''}</strong>
                     </div>
                     <div className="inventory-card__row">
-                      <span>Days Until Depletion</span>
+                      <span>Days Until Reorder</span>
                       <strong className={status === 'CRITICAL' ? 'text-red' : status === 'LOW' ? 'text-yellow' : ''}>
-                        {ing.daysUntilDepletion != null ? `${ing.daysUntilDepletion} days` : '--'}
+                        {ing.days_until_reorder != null ? `${ing.days_until_reorder} days` : '--'}
                       </strong>
                     </div>
                   </div>
@@ -132,31 +133,32 @@ export default function SupplierPayDemo({ proto }) {
           <h3 className="section-title">Purchase Orders</h3>
           <div className="po-list">
             {orders.map((po, i) => {
-              const items = po.items || [];
-              const supplierName = po.supplierName || po.supplier || `Supplier ${i + 1}`;
-              const total = Number(po.totalCost || po.total) || 0;
-              const discount = Number(po.discountAmount || po.discount) || 0;
-              const net = Number(po.netAmount) || (total - discount);
-              const settlementTime = po.settlementTime || (2 + Math.random() * 1.5).toFixed(1);
+              const items = po.line_items || [];
+              const supplierName = po.supplier_name || `Supplier ${i + 1}`;
+              const total = Number(po.total_amount) || 0;
+              const discount = Number(po.discount_amount) || 0;
+              const net = Number(po.net_amount) || (total - discount);
 
               return (
-                <div key={po.id || po.poNumber || i} className="po-card">
+                <div key={po.id || i} className="po-card">
                   <div className="po-card__header">
                     <div>
-                      <span className="po-card__number">PO #{po.id || po.poNumber || i + 1}</span>
+                      <span className="po-card__number">PO #{po.id || i + 1}</span>
                       <span className="po-card__supplier">{supplierName}</span>
                     </div>
-                    <div className="po-card__settlement">
-                      <span className="po-card__settlement-label">Settled in</span>
-                      <span className="po-card__settlement-time">{settlementTime}s</span>
+                    <div className="po-card__status">
+                      <span className={`po-card__badge po-card__badge--${(po.status || 'pending').toLowerCase()}`}>
+                        {po.status || 'PENDING'}
+                      </span>
                     </div>
                   </div>
                   <div className="po-card__items">
                     {items.map((item, j) => (
                       <div key={j} className="po-card__item">
-                        <span>{item.name || item.ingredient}</span>
-                        <span>{item.quantity} {item.unit || ''}</span>
-                        <span>${(Number(item.cost || item.price) || 0).toFixed(2)}</span>
+                        <span>{item.ingredient_name || `Item ${j + 1}`}</span>
+                        <span>{item.quantity} units</span>
+                        <span>${Number(item.unit_price || 0).toFixed(2)} ea</span>
+                        <span>${Number(item.total || 0).toFixed(2)}</span>
                       </div>
                     ))}
                   </div>

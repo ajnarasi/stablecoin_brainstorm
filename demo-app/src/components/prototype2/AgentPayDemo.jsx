@@ -57,7 +57,7 @@ export default function AgentPayDemo() {
       try {
         const result = await getProducts()
         if (result) {
-          const p = result.products || result
+          const p = result.products || []
           if (Array.isArray(p) && p.length > 0) {
             setProducts(p)
           }
@@ -92,32 +92,35 @@ export default function AgentPayDemo() {
     await stepDelay(5)
 
     if (result) {
-      const cardFee = product.price * 0.029 + 0.30 // typical card fee
-      const x402Fee = result.fee || product.price * 0.001
+      const price = Number(product.price) || 0
+      const cardFee = price * 0.029 + 0.30 // typical card fee
+      const x402Fee = result.fee != null ? Number(result.fee) : price * 0.001
 
       setReceipt({
-        receiptId: result.receiptId,
+        receiptId: result.receiptId || '--',
         product: product.name,
-        amount: product.price,
+        amount: price,
         fee: x402Fee,
         cardFeeWouldBe: cardFee,
         savings: cardFee - x402Fee,
-        signature: result.signature || '5Kz9...3mF',
+        signature: result.signature || '--',
+        explorerUrl: result.explorerUrl || null,
+        transactionId: result.transactionId || null,
         timestamp: new Date().toISOString(),
       })
 
       setTransactions((prev) => [[
         new Date().toLocaleTimeString(),
         product.name,
-        `$${(Number(product.price) || 0).toFixed(2)}`,
+        `$${price.toFixed(2)}`,
         'x402 Agent',
-        `$${(Number(x402Fee) || 0).toFixed(2)}`,
+        `$${x402Fee.toFixed(2)}`,
         'Confirmed',
       ], ...prev])
 
       setStats((prev) => {
         const newTxns = prev.totalTxns + 1
-        const newRevenue = prev.totalRevenue + product.price
+        const newRevenue = prev.totalRevenue + price
         return {
           totalTxns: newTxns,
           totalRevenue: newRevenue,
@@ -235,12 +238,15 @@ export default function AgentPayDemo() {
             {products.map((product) => (
               <div key={product.id} className="product-card">
                 <div className="product-card__icon" aria-hidden="true">
-                  {product.icon || product.name?.charAt(0) || '?'}
+                  {product.imageUrl
+                    ? <img src={product.imageUrl} alt="" className="product-card__img" onError={(e) => { e.target.style.display = 'none'; e.target.parentNode.textContent = product.name?.charAt(0) || '?' }} />
+                    : (product.icon || product.name?.charAt(0) || '?')
+                  }
                 </div>
                 <div className="product-card__info">
                   <div className="product-card__name">{product.name}</div>
                   <div className="product-card__category">{product.category}</div>
-                  <div className="product-card__price">${(Number(product.price) || 0).toFixed(2)}</div>
+                  <div className="product-card__price">${(product.price != null ? Number(product.price).toFixed(2) : '--')}</div>
                 </div>
                 <button
                   className="btn btn--accent btn--small"
@@ -270,24 +276,32 @@ export default function AgentPayDemo() {
               </div>
               <div className="receipt-row">
                 <span>Amount</span>
-                <span className="receipt-row__value">${receipt.amount.toFixed(2)}</span>
+                <span className="receipt-row__value">${receipt.amount != null ? Number(receipt.amount).toFixed(2) : '--'}</span>
               </div>
               <div className="receipt-row">
                 <span>x402 Fee (0.1%)</span>
-                <span className="receipt-row__value receipt-row__value--green">${receipt.fee.toFixed(2)}</span>
+                <span className="receipt-row__value receipt-row__value--green">${receipt.fee != null ? Number(receipt.fee).toFixed(2) : '--'}</span>
               </div>
               <div className="receipt-row">
                 <span>Card Fee Would Be (2.9%+$0.30)</span>
-                <span className="receipt-row__value receipt-row__value--red">${receipt.cardFeeWouldBe.toFixed(2)}</span>
+                <span className="receipt-row__value receipt-row__value--red">${receipt.cardFeeWouldBe != null ? Number(receipt.cardFeeWouldBe).toFixed(2) : '--'}</span>
               </div>
               <div className="receipt-row receipt-row--highlight">
                 <span>You Saved</span>
-                <span className="receipt-row__value receipt-row__value--green">${receipt.savings.toFixed(2)}</span>
+                <span className="receipt-row__value receipt-row__value--green">${receipt.savings != null ? Number(receipt.savings).toFixed(2) : '--'}</span>
               </div>
               <div className="receipt-row">
                 <span>On-Chain Signature</span>
                 <span className="receipt-row__value receipt-row__value--mono">{receipt.signature}</span>
               </div>
+              {receipt.explorerUrl && (
+                <div className="receipt-row">
+                  <span>Explorer</span>
+                  <span className="receipt-row__value receipt-row__value--mono">
+                    <a href={receipt.explorerUrl} target="_blank" rel="noopener noreferrer">{receipt.explorerUrl}</a>
+                  </span>
+                </div>
+              )}
               <div className="receipt-row">
                 <span>Timestamp</span>
                 <span className="receipt-row__value">{new Date(receipt.timestamp).toLocaleString()}</span>

@@ -19,27 +19,6 @@ export function usePrototype4(addTrace) {
   });
   const [error, setError] = useState(null);
 
-  const seed = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      addTrace('api', 'POST /api/demo/seed');
-      addTrace('system', 'Seeding GlobalTech Store with cross-border transaction history...');
-      const res = await fetch(`${BASE}/demo/seed`, { method: 'POST' });
-      if (!res.ok) throw new Error(`Seed failed: ${res.status}`);
-      const json = await res.json();
-      addTrace('system', `Seed complete: ${json.transactionsGenerated || 'N/A'} transactions across ${json.corridorsActive || 3} corridors`);
-      addTrace('result', 'Demo data seeded successfully - GlobalTech Store ready');
-      setData((prev) => ({ ...prev, seed: json }));
-      return json;
-    } catch (err) {
-      addTrace('error', `Seed failed: ${err.message}`);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [addTrace]);
-
   const getDashboard = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -53,6 +32,42 @@ export function usePrototype4(addTrace) {
       return json;
     } catch (err) {
       addTrace('error', `Dashboard failed: ${err.message}`);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [addTrace]);
+
+  const seed = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      addTrace('api', 'POST /api/demo/seed');
+      addTrace('system', 'Seeding GlobalTech Store with cross-border transaction history...');
+      const res = await fetch(`${BASE}/demo/seed`, { method: 'POST' });
+      if (!res.ok) throw new Error(`Seed failed: ${res.status}`);
+      const json = await res.json();
+      // API returns: { status, total_transactions, cross_border_transactions, cross_border_pct, buyers, days }
+      addTrace('system', `Seed complete: ${json.total_transactions || 'N/A'} transactions, ${json.cross_border_transactions || 'N/A'} cross-border (${json.cross_border_pct || 'N/A'}%)`);
+      addTrace('result', 'Demo data seeded successfully - GlobalTech Store ready');
+      setData((prev) => ({ ...prev, seed: json }));
+
+      // Auto-fetch dashboard after seed to populate stat cards
+      try {
+        addTrace('api', `GET /api/merchants/${MERCHANT}/dashboard`);
+        const dashRes = await fetch(`${BASE}/merchants/${MERCHANT}/dashboard`);
+        if (dashRes.ok) {
+          const dashJson = await dashRes.json();
+          addTrace('result', 'Dashboard data loaded');
+          setData((prev) => ({ ...prev, dashboard: dashJson }));
+        }
+      } catch (_) {
+        // Dashboard fetch is best-effort after seed
+      }
+
+      return json;
+    } catch (err) {
+      addTrace('error', `Seed failed: ${err.message}`);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -100,27 +115,36 @@ export function usePrototype4(addTrace) {
       if (!res.ok) throw new Error(`Transaction failed: ${res.status}`);
       const json = await res.json();
 
-      const cardFee = json.cardRoute?.totalFee || json.comparison?.cardFee || (parseFloat(amountLocal) * 0.06);
-      const stablecoinFee = json.stablecoinRoute?.totalFee || json.comparison?.stablecoinFee || (parseFloat(amountLocal) * 0.005);
-      const cardPct = json.cardRoute?.feePercent || '6.0';
-      const stablecoinPct = json.stablecoinRoute?.feePercent || '0.5';
-      const savings = json.savings || (cardFee - stablecoinFee);
-      const savingsPct = json.savingsPercent || ((savings / cardFee) * 100).toFixed(1);
+      // Read from snake_case API response for trace display
+      const rc = json.route_comparison || {};
+      const st = json.settlement || {};
 
-      addTrace('system', `Route Comparison: Card route = ${cardPct}% ($${cardFee.toFixed(2)})`);
+      const cardFee = Number(rc.card_fee) || 0;
+      const cardFeePct = Number(rc.card_fee_pct) || 0;
+      const stablecoinFee = Number(rc.stablecoin_fee) || 0;
+      const stablecoinFeePct = Number(rc.stablecoin_fee_pct) || 0;
+      const savingsAmount = Number(rc.savings_amount) || 0;
+      const savingsPct = Number(rc.savings_pct) || 0;
+      const usdAmount = Number(st.amount_usd) || 0;
+      const settlementTimeSec = Number(st.settlement_time_seconds) || 0;
+
+      const cardPctDisplay = (cardFeePct * 100).toFixed(1);
+      const stablecoinPctDisplay = (stablecoinFeePct * 100).toFixed(1);
+
+      addTrace('system', `Route Comparison: Card route = ${cardPctDisplay}% ($${cardFee.toFixed(2)})`);
       await delay(200);
-      addTrace('system', `Route Comparison: Stablecoin route = ${stablecoinPct}% ($${stablecoinFee.toFixed(2)})`);
+      addTrace('system', `Route Comparison: Stablecoin route = ${stablecoinPctDisplay}% ($${stablecoinFee.toFixed(2)})`);
       await delay(200);
-      addTrace('system', `Route Comparison: SAVINGS = $${savings.toFixed(2)} (${savingsPct}%)`);
+      addTrace('system', `Route Comparison: SAVINGS = $${savingsAmount.toFixed(2)} (${savingsPct.toFixed(1)}%)`);
       await delay(300);
 
       addTrace('system', 'Compliance: OFAC screening... PASSED');
       await delay(200);
 
-      const fxRate = json.fxRate || json.rate || 0.05714;
-      const usdAmount = json.usdAmount || json.amountUsd || (parseFloat(amountLocal) * fxRate);
+      const txn = json.transaction || {};
+      const fxRate = txn.amount_usd && txn.amount_local ? (txn.amount_usd / txn.amount_local) : 0;
 
-      if (buyerCurrency !== 'USD') {
+      if (buyerCurrency !== 'USD' && fxRate > 0) {
         addTrace('system', `FX Engine: Locking rate ${buyerCurrency}/USD = ${fxRate.toFixed(5)} (30-second window)`);
         await delay(200);
         addTrace('system', `FX Engine: ${parseFloat(amountLocal).toLocaleString()} ${buyerCurrency} -> ${usdAmount.toFixed(2)} FIUSD (rate: ${fxRate.toFixed(5)})`);
@@ -136,21 +160,24 @@ export function usePrototype4(addTrace) {
       addTrace('system', 'INDX: Settling to GlobalTech Store bank account...');
       await delay(500);
 
-      const settlementTime = json.settlementTime || (2.5 + Math.random() * 1.5).toFixed(1);
       addTrace('result', `Settlement COMPLETE | $${usdAmount.toFixed(2)} USD received`);
-      addTrace('result', `Total time: ${settlementTime} seconds | Fee: $${stablecoinFee.toFixed(2)} (${stablecoinPct}%) | Saved: $${savings.toFixed(2)} vs card rails`);
+      addTrace('result', `Total time: ${settlementTimeSec} seconds | Fee: $${stablecoinFee.toFixed(2)} (${stablecoinPctDisplay}%) | Saved: $${savingsAmount.toFixed(2)} vs card rails`);
 
       // Normalize snake_case API response to camelCase for component
-      const rc = json.route_comparison || {};
-      const st = json.settlement || {};
       const normalized = {
         ...json,
-        cardRoute: { totalFee: rc.card_fee, feePercent: (rc.card_fee_pct * 100).toFixed(1) },
-        stablecoinRoute: { totalFee: rc.stablecoin_fee, feePercent: (rc.stablecoin_fee_pct * 100).toFixed(1) },
-        savings: rc.savings_amount,
-        savingsPercent: rc.savings_pct,
-        usdAmount: st.amount_usd,
-        settlementTime: st.settlement_time_seconds,
+        cardRoute: {
+          totalFee: cardFee,
+          feePercent: cardPctDisplay,
+        },
+        stablecoinRoute: {
+          totalFee: stablecoinFee,
+          feePercent: stablecoinPctDisplay,
+        },
+        savings: savingsAmount,
+        savingsPercent: savingsPct,
+        usdAmount: usdAmount,
+        settlementTime: settlementTimeSec,
         fxRate: fxRate,
       };
       setData((prev) => ({ ...prev, transaction: normalized }));

@@ -10,12 +10,13 @@ const BUYERS = [
 ];
 
 export default function CrossBorderDemo({ proto }) {
-  const { seed, triggerLiveTransaction, getAnalytics, getFxRates, loading, data, error } = proto;
+  const { seed, triggerLiveTransaction, getDashboard, getAnalytics, getFxRates, loading, data, error } = proto;
 
   const [selectedBuyer, setSelectedBuyer] = useState(BUYERS[0].id);
   const [amount, setAmount] = useState(BUYERS[0].defaultAmount.toString());
 
   const transaction = data.transaction;
+  const dashboard = data.dashboard;
   const analytics = data.analytics;
   const fxRates = data.fxRates;
 
@@ -32,24 +33,25 @@ export default function CrossBorderDemo({ proto }) {
     triggerLiveTransaction(selectedBuyer, amount);
   };
 
-  // Transaction comparison data - ensure numeric types for .toFixed() safety
-  const cardFeeRaw = transaction?.cardRoute?.totalFee ?? transaction?.comparison?.cardFee ?? null;
+  // Transaction comparison data from normalized hook output - ensure numeric types for .toFixed() safety
+  const cardFeeRaw = transaction?.cardRoute?.totalFee ?? null;
   const cardFee = cardFeeRaw != null ? Number(cardFeeRaw) : null;
-  const stablecoinFeeRaw = transaction?.stablecoinRoute?.totalFee ?? transaction?.comparison?.stablecoinFee ?? null;
+  const stablecoinFeeRaw = transaction?.stablecoinRoute?.totalFee ?? null;
   const stablecoinFee = stablecoinFeeRaw != null ? Number(stablecoinFeeRaw) : null;
   const savingsRaw = transaction?.savings ?? (cardFee != null && stablecoinFee != null ? cardFee - stablecoinFee : null);
-  const savings = savingsRaw != null ? Number(savingsRaw) : null;
-  const usdAmountRaw = transaction?.usdAmount ?? transaction?.amountUsd ?? null;
+  const savingsVal = savingsRaw != null ? Number(savingsRaw) : null;
+  const usdAmountRaw = transaction?.usdAmount ?? null;
   const usdAmount = usdAmountRaw != null ? Number(usdAmountRaw) : null;
   const settlementTime = transaction?.settlementTime ?? null;
-  const fxRateRaw = transaction?.fxRate ?? transaction?.rate ?? null;
+  const fxRateRaw = transaction?.fxRate ?? null;
   const fxRate = fxRateRaw != null ? Number(fxRateRaw) : null;
 
-  // Dashboard stats
-  const totalSavings = Number(analytics?.totalSavings || transaction?.totalSavings) || 0;
-  const totalTransactions = Number(analytics?.totalTransactions || transaction?.totalTransactions) || 0;
-  const avgSettlement = Number(analytics?.avgSettlementTime || transaction?.avgSettlementTime) || 0;
-  const corridorsActive = Number(analytics?.corridorsActive) || 3;
+  // Dashboard stats from headline_stats (populated after seed auto-fetches dashboard)
+  const hs = dashboard?.headline_stats || {};
+  const totalSavings = Number(hs.total_savings_usd) || 0;
+  const crossBorderTxns = Number(hs.cross_border_transactions) || 0;
+  const avgSettlement = Number(hs.avg_settlement_seconds) || 0;
+  const corridorsActive = Number(hs.corridors_active) || 0;
 
   // FX rate display
   const rates = fxRates?.rates || fxRates || {};
@@ -116,26 +118,26 @@ export default function CrossBorderDemo({ proto }) {
         />
         <StatCard
           label="Cross-Border Transactions"
-          value={<AnimatedCounter value={totalTransactions} decimals={0} />}
+          value={<AnimatedCounter value={crossBorderTxns} decimals={0} />}
           subValue="processed via FIUSD"
           color="var(--color-navy)"
         />
         <StatCard
           label="Avg Settlement Time"
-          value={avgSettlement ? <AnimatedCounter value={avgSettlement} suffix="s" decimals={1} /> : '--'}
+          value={avgSettlement ? <AnimatedCounter value={avgSettlement} suffix="s" decimals={0} /> : '--'}
           subValue="vs. 3 business days"
           color="var(--color-teal)"
         />
         <StatCard
           label="Corridors Active"
-          value={corridorsActive}
+          value={corridorsActive || '--'}
           subValue="MXN, EUR, GBP"
           color="var(--color-orange)"
         />
       </div>
 
       {/* THE MONEY SHOT: Side-by-Side Comparison */}
-      {(transaction || savings !== null) && (
+      {transaction && (
         <section className="mt-xl" aria-label="Route comparison">
           <h3 className="section-title">Route Comparison</h3>
           <div className="route-comparison">
@@ -151,7 +153,7 @@ export default function CrossBorderDemo({ proto }) {
                   </span>
                 </div>
                 <div className="route-comparison__detail">
-                  {transaction?.cardRoute?.feePercent || '4.75'}% + FX markup
+                  {transaction?.cardRoute?.feePercent || '--'}% + FX markup
                 </div>
                 <div className="route-comparison__row">
                   <span className="route-comparison__label">FX Markup</span>
@@ -173,12 +175,12 @@ export default function CrossBorderDemo({ proto }) {
 
             <div className="route-comparison__savings" aria-label="Savings amount">
               <div className="route-comparison__savings-amount">
-                ${savings != null ? savings.toFixed(2) : '--'}
+                ${savingsVal != null ? savingsVal.toFixed(2) : '--'}
               </div>
               <div className="route-comparison__savings-label">SAVED</div>
-              {savings != null && cardFee != null && cardFee > 0 && (
+              {savingsVal != null && cardFee != null && cardFee > 0 && (
                 <div className="route-comparison__savings-pct">
-                  {((savings / cardFee) * 100).toFixed(1)}% reduction
+                  {((savingsVal / cardFee) * 100).toFixed(1)}% reduction
                 </div>
               )}
             </div>
@@ -195,7 +197,7 @@ export default function CrossBorderDemo({ proto }) {
                   </span>
                 </div>
                 <div className="route-comparison__detail">
-                  {transaction?.stablecoinRoute?.feePercent || '0.5'}% all-in
+                  {transaction?.stablecoinRoute?.feePercent || '--'}% all-in
                 </div>
                 <div className="route-comparison__row">
                   <span className="route-comparison__label">FX Rate</span>
@@ -204,7 +206,7 @@ export default function CrossBorderDemo({ proto }) {
                 <div className="route-comparison__row">
                   <span className="route-comparison__label">Settlement</span>
                   <span className="route-comparison__value route-comparison__value--good">
-                    {settlementTime ? `${settlementTime} seconds` : '~3 seconds'}
+                    {settlementTime != null ? `${settlementTime} seconds` : '--'}
                   </span>
                 </div>
                 <div className="route-comparison__row">
@@ -228,21 +230,21 @@ export default function CrossBorderDemo({ proto }) {
             {rates.MXN_USD && (
               <div className="fx-rate-card">
                 <div className="fx-rate-card__pair">MXN / USD</div>
-                <div className="fx-rate-card__rate">{rates.MXN_USD.toFixed(5)}</div>
+                <div className="fx-rate-card__rate">{Number(rates.MXN_USD).toFixed(5)}</div>
                 <div className="fx-rate-card__label">Mexican Peso</div>
               </div>
             )}
             {rates.EUR_USD && (
               <div className="fx-rate-card">
                 <div className="fx-rate-card__pair">EUR / USD</div>
-                <div className="fx-rate-card__rate">{rates.EUR_USD.toFixed(5)}</div>
+                <div className="fx-rate-card__rate">{Number(rates.EUR_USD).toFixed(5)}</div>
                 <div className="fx-rate-card__label">Euro</div>
               </div>
             )}
             {rates.GBP_USD && (
               <div className="fx-rate-card">
                 <div className="fx-rate-card__pair">GBP / USD</div>
-                <div className="fx-rate-card__rate">{rates.GBP_USD.toFixed(5)}</div>
+                <div className="fx-rate-card__rate">{Number(rates.GBP_USD).toFixed(5)}</div>
                 <div className="fx-rate-card__label">British Pound</div>
               </div>
             )}
@@ -258,7 +260,7 @@ export default function CrossBorderDemo({ proto }) {
       )}
 
       {/* Settlement Timer */}
-      {transaction && settlementTime && (
+      {transaction && settlementTime != null && (
         <section className="mt-xl" aria-label="Settlement timeline">
           <h3 className="section-title">Settlement Timeline</h3>
           <div className="settlement-timeline">

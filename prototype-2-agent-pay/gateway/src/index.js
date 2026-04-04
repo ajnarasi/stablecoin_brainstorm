@@ -120,7 +120,7 @@ app.use((err, req, res, _next) => {
 });
 
 // --- Start server ---
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n  x402 Gateway running on http://localhost:${PORT}`);
   console.log(`  Protocol: x402-v2`);
   console.log(`  Products: GET http://localhost:${PORT}/api/products`);

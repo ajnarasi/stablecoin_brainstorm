@@ -26,11 +26,20 @@ export default function YieldSweepDemo() {
   const [earningsData, setEarningsData] = useState([])
   const [seeded, setSeeded] = useState(false)
 
-  // Generate mock earnings data for chart
+  // Build earnings chart from real accrual_history data
   useEffect(() => {
-    if (dashboard) {
+    if (dashboard && dashboard.accrualHistory && dashboard.accrualHistory.length > 0) {
+      // Use real accrual_history from the API
+      const history = dashboard.accrualHistory.slice(-30) // last 30 entries
+      const days = history.map((entry) => ({
+        date: new Date(entry.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        amount: parseFloat(entry.accrued) || 0,
+      }))
+      setEarningsData(days)
+    } else if (dashboard) {
+      // Fallback: generate from dailyEarningsRate if no history
       const days = []
-      const baseEarning = (dashboard.yieldPosition || 5000) * 0.042 / 365
+      const baseEarning = dashboard.dailyEarningsRate || 0
       for (let i = 29; i >= 0; i--) {
         const d = new Date()
         d.setDate(d.getDate() - i)
@@ -56,16 +65,16 @@ export default function YieldSweepDemo() {
     const result = await triggerSweep()
     if (result) {
       setSweepDecision({
-        approved: result.approved !== false,
-        amount: result.sweepAmount || 781.50,
-        reason: result.reason || 'Excess above safety floor with ML confidence > 80%',
+        approved: result.decision === 'APPROVED',
+        amount: result.proposedAmount,
+        reason: result.reason || 'ML-predicted safe excess',
         timestamp: new Date().toISOString(),
       })
       setSweepHistory((prev) => [[
         new Date().toLocaleString(),
         'SWEEP',
-        `$${(Number(result.sweepAmount) || 781.50).toFixed(2)}`,
-        result.approved !== false ? 'COMPLETED' : 'DENIED',
+        `$${(result.proposedAmount != null ? Number(result.proposedAmount).toFixed(2) : '--')}`,
+        result.decision === 'APPROVED' ? 'COMPLETED' : 'DENIED',
         result.reason || 'ML-predicted safe excess',
       ], ...prev])
       const dash = await getDashboard()
@@ -79,7 +88,7 @@ export default function YieldSweepDemo() {
       setSweepHistory((prev) => [[
         new Date().toLocaleString(),
         'UNSWEEP',
-        `$${(Number(result.amount) || 0).toFixed(2)}`,
+        `$${(result.amount != null ? Number(result.amount).toFixed(2) : '0.00')}`,
         'COMPLETED',
         'Emergency liquidity return',
       ], ...prev])
@@ -157,23 +166,23 @@ export default function YieldSweepDemo() {
         <div className="stat-cards-grid">
           <StatCard
             label="Available Balance"
-            value={<AnimatedCounter value={dashboard?.availableBalance || 0} prefix="$" decimals={2} />}
+            value={<AnimatedCounter value={dashboard?.currentBalance || 0} prefix="$" decimals={2} />}
             color="navy"
           />
           <StatCard
             label="FIUSD Yield Position"
-            value={<AnimatedCounter value={dashboard?.yieldPosition || 0} prefix="$" decimals={2} />}
+            value={<AnimatedCounter value={dashboard?.fiusdPosition || 0} prefix="$" decimals={2} />}
             color="teal"
           />
           <StatCard
             label="Monthly Earnings"
             value={<AnimatedCounter value={dashboard?.monthlyEarnings || 0} prefix="$" decimals={2} />}
             color="green"
-            trend={dashboard ? '+$' + (Number(dashboard.monthlyEarnings) || 0).toFixed(2) + '/mo' : undefined}
+            trend={dashboard ? '+$' + (dashboard.monthlyEarnings != null ? Number(dashboard.monthlyEarnings).toFixed(2) : '0.00') + '/mo' : undefined}
           />
           <StatCard
             label="APY Rate"
-            value={<AnimatedCounter value={dashboard?.apy || 4.2} suffix="%" decimals={1} />}
+            value={<AnimatedCounter value={dashboard?.apy || 0} suffix="%" decimals={1} />}
             color="orange"
           />
         </div>
@@ -191,7 +200,7 @@ export default function YieldSweepDemo() {
             </div>
             <div className="decision-panel__body">
               <div className="decision-panel__amount">
-                ${sweepDecision.amount.toFixed(2)}
+                ${sweepDecision.amount != null ? Number(sweepDecision.amount).toFixed(2) : '--'}
               </div>
               <div className="decision-panel__reason">{sweepDecision.reason}</div>
             </div>

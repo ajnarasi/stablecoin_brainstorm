@@ -57,7 +57,8 @@ export function usePrototype2(addTrace) {
     setError(null)
     try {
       const result = await apiCall('GET', '/products')
-      const products = result.products || result || []
+      // API returns: { count, products: [...] }
+      const products = result.products || []
       addTrace({
         type: 'system',
         title: `CommerceHub: Loaded ${products.length} products from merchant catalog`,
@@ -76,7 +77,7 @@ export function usePrototype2(addTrace) {
     setError(null)
     try {
       const result = await apiCall('GET', `/products/search?q=${encodeURIComponent(query)}`)
-      const products = result.products || result || []
+      const products = result.products || []
       addTrace({
         type: 'result',
         title: `Found ${products.length} products matching "${query}"`,
@@ -122,10 +123,14 @@ export function usePrototype2(addTrace) {
     setError(null)
     try {
       const result = await apiCall('GET', '/x402/transactions')
-      const txns = result.transactions || result || []
+      // API returns: { total, agentTransactions, cardTransactions, summary }
+      const total = result.total || 0
       addTrace({
         type: 'result',
-        title: `Loaded ${txns.length} recent transactions`,
+        title: `Loaded ${total} recent transactions`,
+        description: result.summary
+          ? `Agent revenue: $${result.summary.totalAgentRevenue || 0} | Agent count: ${result.summary.totalAgentCount || 0}`
+          : undefined,
       })
       setData(result)
       return result
@@ -140,7 +145,7 @@ export function usePrototype2(addTrace) {
     setLoading(true)
     setError(null)
     try {
-      const productName = product.name || product.title || `Product ${product.id}`
+      const productName = product.name || `Product ${product.id}`
       const price = product.price || 0
 
       addTrace({
@@ -170,6 +175,8 @@ export function usePrototype2(addTrace) {
         title: 'Agent SDK: Signing EIP-3009 transferWithAuthorization...',
       })
 
+      // API: POST /api/x402/verify
+      // Returns: { valid, receipt: { receiptId, timestamp, amount, token, chain, transactionId, signature }, settlement: { settled, chain, txId, explorerUrl } }
       const result = await apiCall('POST', '/x402/verify', {
         productId: product.id,
         amount: price,
@@ -177,29 +184,29 @@ export function usePrototype2(addTrace) {
         chain: 'solana',
       })
 
+      const receipt = result.receipt || {}
+      const settlement = result.settlement || {}
+
       addTrace({
         type: 'system',
         title: 'Verifier: Validating EIP-3009 signature...',
+        description: `Valid: ${result.valid}`,
       })
       addTrace({
         type: 'system',
-        title: `Verifier: Checking Finxact KYC tier...`,
-        description: `${result.kycTier || 'Premium'} (limit: $${(result.spendLimit || 10000).toLocaleString()}/txn)`,
+        title: `Verifier: Payment verified`,
+        description: `Token: ${receipt.token || 'FIUSD'} | Chain: ${receipt.chain || 'solana'}`,
       })
       addTrace({
         type: 'system',
-        title: `Verifier: Checking daily spend...`,
-        description: `$${price.toFixed(2)} / $${(result.dailyLimit || 50000).toLocaleString()} daily limit`,
-      })
-      addTrace({
-        type: 'system',
-        title: 'Settler: Executing on-chain settlement on Solana devnet...',
+        title: 'Settler: Executing on-chain settlement...',
+        description: `Chain: ${settlement.chain || 'solana'}`,
       })
 
-      const sig = result.signature || '5Kz9...3mF'
+      const sig = receipt.signature || settlement.txId || 'N/A'
       addTrace({
         type: 'system',
-        title: `Settler: Transaction confirmed`,
+        title: 'Settler: Transaction confirmed',
         description: `Signature: ${sig}`,
       })
       addTrace({
@@ -207,8 +214,8 @@ export function usePrototype2(addTrace) {
         title: 'INDX: Converting FIUSD to USD for merchant settlement...',
       })
 
-      const receiptId = result.receiptId || `RCP-${new Date().toISOString().slice(0, 10)}-${String(Math.floor(Math.random() * 999) + 1).padStart(3, '0')}`
-      const fee = result.fee || (price * 0.001)
+      const receiptId = receipt.receiptId || `RCP-${Date.now()}`
+      const fee = price * 0.001 // 0.1% fee
       addTrace({
         type: 'result',
         title: `Payment complete! Receipt ID: ${receiptId}`,
@@ -219,7 +226,16 @@ export function usePrototype2(addTrace) {
         description: `Fee: $${fee.toFixed(2)} (0.1%) | Settlement: instant`,
       })
 
-      const enrichedResult = { ...result, receiptId, fee, productName, price }
+      const enrichedResult = {
+        ...result,
+        receiptId,
+        fee,
+        productName,
+        price,
+        signature: receipt.signature || sig,
+        explorerUrl: settlement.explorerUrl || null,
+        transactionId: receipt.transactionId || settlement.txId || null,
+      }
       setData(enrichedResult)
       return enrichedResult
     } catch (err) {
