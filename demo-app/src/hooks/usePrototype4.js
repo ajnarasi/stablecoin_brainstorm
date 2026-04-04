@@ -140,7 +140,20 @@ export function usePrototype4(addTrace) {
       addTrace('result', `Settlement COMPLETE | $${usdAmount.toFixed(2)} USD received`);
       addTrace('result', `Total time: ${settlementTime} seconds | Fee: $${stablecoinFee.toFixed(2)} (${stablecoinPct}%) | Saved: $${savings.toFixed(2)} vs card rails`);
 
-      setData((prev) => ({ ...prev, transaction: json }));
+      // Normalize snake_case API response to camelCase for component
+      const rc = json.route_comparison || {};
+      const st = json.settlement || {};
+      const normalized = {
+        ...json,
+        cardRoute: { totalFee: rc.card_fee, feePercent: (rc.card_fee_pct * 100).toFixed(1) },
+        stablecoinRoute: { totalFee: rc.stablecoin_fee, feePercent: (rc.stablecoin_fee_pct * 100).toFixed(1) },
+        savings: rc.savings_amount,
+        savingsPercent: rc.savings_pct,
+        usdAmount: st.amount_usd,
+        settlementTime: st.settlement_time_seconds,
+        fxRate: fxRate,
+      };
+      setData((prev) => ({ ...prev, transaction: normalized }));
       return json;
     } catch (err) {
       addTrace('error', `Transaction failed: ${err.message}`);

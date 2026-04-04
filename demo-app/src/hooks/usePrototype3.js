@@ -71,7 +71,8 @@ export function usePrototype3(addTrace) {
       addTrace('system', 'ML Model: Analyzing ingredient depletion patterns...');
       await delay(300);
 
-      const ingredients = json.ingredients || json.evaluation || [];
+      const invData = json.inventory || json;
+      const ingredients = invData.ingredients || json.evaluation || [];
       const critical = ingredients.filter((i) => i.status === 'CRITICAL' || i.status === 'critical');
       const low = ingredients.filter((i) => i.status === 'LOW' || i.status === 'low');
       const ok = ingredients.filter((i) => i.status === 'OK' || i.status === 'ok');
@@ -121,38 +122,43 @@ export function usePrototype3(addTrace) {
       addTrace('system', 'Procurement Agent: Generating purchase orders...');
       await delay(300);
 
-      const orders = json.purchaseOrders || json.orders || [];
+      const orders = json.purchase_orders || json.purchaseOrders || json.orders || [];
       for (const po of orders) {
-        const items = (po.items || []).map((it) => `${it.name || it.ingredient} ${it.quantity || ''}`).join(' + ');
-        addTrace('system', `PO #${po.id || po.poNumber}: ${po.supplierName || po.supplier} - ${items} = $${(po.totalCost || po.total || 0).toFixed(2)}`);
+        const lineItems = po.line_items || po.items || [];
+        const items = lineItems.map((it) => `${it.name || it.ingredient_name || it.ingredient || ''} ${it.quantity || ''}`).join(' + ');
+        const total = po.total_amount || po.totalCost || po.total || 0;
+        addTrace('system', `PO #${po.id || po.poNumber}: ${po.supplier_name || po.supplierName || po.supplier} - ${items} = $${Number(total).toFixed(2)}`);
         await delay(200);
       }
 
-      if (json.discounts || orders.some((po) => po.discount)) {
+      if (json.total_savings > 0 || orders.some((po) => po.discount_amount)) {
         addTrace('system', 'Procurement Agent: Applying early-pay discount (2% for payment within 24h)...');
         await delay(200);
         for (const po of orders) {
-          if (po.discount || po.discountAmount) {
-            addTrace('system', `Discount captured: $${(po.discountAmount || po.discount || 0).toFixed(2)} on PO #${po.id || po.poNumber}`);
+          const disc = po.discount_amount || po.discountAmount || po.discount || 0;
+          if (disc > 0) {
+            addTrace('system', `Discount captured: $${Number(disc).toFixed(2)} on PO #${po.id || po.poNumber}`);
           }
         }
       }
 
       for (const po of orders) {
         await delay(300);
-        addTrace('api', `Finxact: Executing FIUSD transfer - Merchant -> ${po.supplierName || po.supplier}`);
-        addTrace('system', `Finxact: Debit ${MERCHANT}: $${(po.netAmount || po.totalCost || po.total || 0).toFixed(2)} FIUSD`);
-        addTrace('system', `Finxact: Credit ${po.supplierId || 'SUP'}: $${(po.netAmount || po.totalCost || po.total || 0).toFixed(2)} FIUSD`);
+        const supplier = po.supplier_name || po.supplierName || po.supplier;
+        const amount = po.total_amount || po.netAmount || po.totalCost || po.total || 0;
+        addTrace('api', `Finxact: Executing FIUSD transfer - Merchant -> ${supplier}`);
+        addTrace('system', `Finxact: Debit ${MERCHANT}: $${Number(amount).toFixed(2)} FIUSD`);
+        addTrace('system', `Finxact: Credit ${po.supplier_id || po.supplierId || 'SUP'}: $${Number(amount).toFixed(2)} FIUSD`);
         await delay(200);
-        addTrace('system', `INDX: Settling ${po.supplierName || po.supplier} in USD...`);
+        addTrace('system', `INDX: Settling ${supplier} in USD...`);
         await delay(400);
-        const settlementTime = (po.settlementTime || (2 + Math.random() * 1.5)).toFixed(1);
-        addTrace('result', `Settlement complete: ${po.supplierName || po.supplier} received $${(po.netAmount || po.totalCost || po.total || 0).toFixed(2)} USD in ${settlementTime} seconds`);
+        const settlementTime = (po.settlement_time || po.settlementTime || (2 + Math.random() * 1.5)).toFixed(1);
+        addTrace('result', `Settlement complete: ${supplier} received $${Number(amount).toFixed(2)} USD in ${settlementTime} seconds`);
       }
 
-      const totalPaid = orders.reduce((sum, po) => sum + (po.netAmount || po.totalCost || po.total || 0), 0);
-      const totalDiscount = orders.reduce((sum, po) => sum + (po.discountAmount || po.discount || 0), 0);
-      const cardFeesSaved = json.cardFeesSaved || (totalPaid * 0.029).toFixed(2);
+      const totalPaid = orders.reduce((sum, po) => sum + Number(po.total_amount || po.netAmount || po.totalCost || po.total || 0), 0);
+      const totalDiscount = orders.reduce((sum, po) => sum + Number(po.discount_amount || po.discountAmount || po.discount || 0), 0);
+      const cardFeesSaved = json.card_fees_saved || json.cardFeesSaved || (totalPaid * 0.029).toFixed(2);
 
       addTrace('result', `Total: ${orders.length} POs, $${totalPaid.toFixed(2)} paid, $${totalDiscount.toFixed(2)} saved in discounts, $${cardFeesSaved} card fees eliminated`);
 

@@ -9,13 +9,15 @@ export default function SupplierPayDemo({ proto }) {
   const autoOrder = data.autoOrder;
   const savings = data.savings;
 
-  const ingredients = evaluation?.ingredients || evaluation?.evaluation || [];
-  const orders = autoOrder?.purchaseOrders || autoOrder?.orders || [];
+  // Handle both camelCase and snake_case from API
+  const invData = evaluation?.inventory || evaluation;
+  const ingredients = invData?.ingredients || evaluation?.evaluation || [];
+  const orders = autoOrder?.purchase_orders || autoOrder?.purchaseOrders || autoOrder?.orders || [];
 
-  const monthlySavings = Number(savings?.monthlySavings || autoOrder?.monthlySavings) || 0;
-  const discountsCaptured = Number(savings?.discountsCaptured || autoOrder?.totalDiscounts) || 0;
-  const cardFeesEliminated = Number(savings?.cardFeesEliminated || autoOrder?.cardFeesSaved) || 0;
-  const avgSettlement = Number(savings?.avgSettlementTime || autoOrder?.avgSettlementTime) || 0;
+  const monthlySavings = Number(savings?.monthly_savings || savings?.monthlySavings || autoOrder?.total_savings || autoOrder?.monthlySavings) || 0;
+  const discountsCaptured = Number(savings?.discounts_captured || savings?.discountsCaptured || autoOrder?.total_discounts || autoOrder?.totalDiscounts) || 0;
+  const cardFeesEliminated = Number(savings?.card_fees_eliminated || savings?.cardFeesEliminated || autoOrder?.card_fees_saved || autoOrder?.cardFeesSaved) || 0;
+  const avgSettlement = Number(savings?.avg_settlement_time || savings?.avgSettlementTime || autoOrder?.avg_settlement_time || autoOrder?.avgSettlementTime) || 0;
 
   return (
     <div className="demo-layout">
