@@ -70,6 +70,17 @@ body {
   min-height: 100vh;
 }
 
+/* Showcase cinematic mode — override light theme defaults */
+body.showcase-active {
+  background-color: #0a0e17;
+  color: #ffffff;
+  overflow: hidden;
+}
+
+body.showcase-active #root {
+  min-height: 100vh;
+}
+
 #root {
   min-height: 100vh;
   display: flex;
