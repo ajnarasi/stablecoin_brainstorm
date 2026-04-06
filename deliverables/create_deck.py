@@ -645,247 +645,149 @@ add_text_box(slide, Inches(1.2), Inches(6.48), Inches(11), Inches(0.5),
 
 
 # ============================================================
-# SLIDE 14: PROTOTYPE 1 - YIELD SWEEP
+# SLIDES 14-17: PROTOTYPES (Problem + Solution + How It Works + Impact)
 # ============================================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, WHITE)
-add_shape(slide, Inches(0), Inches(0), W, Inches(0.08), ORANGE)
 
-# Badge
-add_rounded_rect(slide, Inches(0.8), Inches(0.35), Inches(1.8), Inches(0.35), ORANGE)
-add_text_box(slide, Inches(0.8), Inches(0.37), Inches(1.8), Inches(0.3),
-             "PROTOTYPE 1", 11, WHITE, True, PP_ALIGN.CENTER)
+def build_prototype_slide(prs, proto_num, title, problem_text, solution_text, steps, impacts, tagline):
+    """Build a standardized prototype slide with Problem/Solution/How/Impact layout."""
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    add_bg(slide, WHITE)
+    add_shape(slide, Inches(0), Inches(0), W, Inches(0.08), ORANGE)
 
-add_text_box(slide, Inches(2.8), Inches(0.3), Inches(9), Inches(0.6),
-             "Merchant Yield Sweep", 32, NAVY, True)
-add_text_box(slide, Inches(0.8), Inches(0.9), Inches(11), Inches(0.4),
-             "\"Your money earned $847 this month\"  --  Turns Fiserv from cost center to value center", 14, MED_GRAY)
+    # Badge + Title
+    add_rounded_rect(slide, Inches(0.8), Inches(0.3), Inches(1.8), Inches(0.35), ORANGE)
+    add_text_box(slide, Inches(0.8), Inches(0.32), Inches(1.8), Inches(0.3),
+                 f"PROTOTYPE {proto_num}", 11, WHITE, True, PP_ALIGN.CENTER)
+    add_text_box(slide, Inches(2.8), Inches(0.25), Inches(9), Inches(0.5),
+                 title, 28, NAVY, True)
 
-# Architecture flow - left side
-add_text_box(slide, Inches(0.8), Inches(1.5), Inches(5.5), Inches(0.4),
-             "Architecture", 18, NAVY, True)
+    # Problem (left, red)
+    add_rounded_rect(slide, Inches(0.6), Inches(0.9), Inches(6.0), Inches(1.3), RGBColor(0xFF, 0xEB, 0xEE))
+    add_shape(slide, Inches(0.6), Inches(0.9), Inches(0.06), Inches(1.3), RED)
+    add_multi_text(slide, Inches(0.9), Inches(0.95), Inches(5.5), Inches(1.2), [
+        ("THE PROBLEM", 10, RED, True, PP_ALIGN.LEFT),
+        (problem_text, 10, DARK_GRAY, False, PP_ALIGN.LEFT),
+    ])
 
-arch_steps = [
-    ("Clover POS / CommerceHub", "Settlement data feed", TEAL),
-    ("AI Treasury Agent", "3-day rolling forecast\nSeasonal pattern detection", ORANGE),
-    ("Finxact Ledger", "Demand Deposit <-> FIUSD Yield Position", NAVY),
-    ("INDX Settlement", "Instant USD liquidity when needed", GREEN),
-]
+    # Solution (left, green)
+    add_rounded_rect(slide, Inches(0.6), Inches(2.35), Inches(6.0), Inches(1.3), RGBColor(0xE8, 0xF5, 0xE9))
+    add_shape(slide, Inches(0.6), Inches(2.35), Inches(0.06), Inches(1.3), GREEN)
+    add_multi_text(slide, Inches(0.9), Inches(2.4), Inches(5.5), Inches(1.2), [
+        ("THE SOLUTION", 10, GREEN, True, PP_ALIGN.LEFT),
+        (solution_text, 10, DARK_GRAY, False, PP_ALIGN.LEFT),
+    ])
 
-for i, (title, desc, color) in enumerate(arch_steps):
-    y = Inches(2.0 + i * 1.15)
-    add_rounded_rect(slide, Inches(0.8), y, Inches(5.5), Inches(0.95), LIGHT_GRAY)
-    add_shape(slide, Inches(0.8), y, Inches(0.08), Inches(0.95), color)
-    add_text_box(slide, Inches(1.1), y + Inches(0.05), Inches(5.0), Inches(0.35),
-                 title, 13, color, True)
-    add_text_box(slide, Inches(1.1), y + Inches(0.4), Inches(5.0), Inches(0.5),
-                 desc, 11, DARK_GRAY)
+    # How It Works (right column)
+    add_text_box(slide, Inches(7.0), Inches(0.9), Inches(5.5), Inches(0.4),
+                 "HOW IT WORKS", 10, NAVY, True)
+    for i, (num, desc) in enumerate(steps):
+        y = Inches(1.35 + i * 0.52)
+        circle = slide.shapes.add_shape(MSO_SHAPE.OVAL, Inches(7.0), y, Inches(0.3), Inches(0.3))
+        circle.fill.solid()
+        circle.fill.fore_color.rgb = ORANGE
+        circle.line.fill.background()
+        add_text_box(slide, Inches(7.0), y + Inches(0.02), Inches(0.3), Inches(0.25),
+                     num, 10, WHITE, True, PP_ALIGN.CENTER)
+        add_text_box(slide, Inches(7.45), y, Inches(5.0), Inches(0.45),
+                     desc, 9, DARK_GRAY)
 
-# Right side: Key metrics + build plan
-add_text_box(slide, Inches(7.0), Inches(1.5), Inches(5.5), Inches(0.4),
-             "Build Plan: 5 Weeks", 18, NAVY, True)
+    # Impact bar (bottom, navy)
+    add_rounded_rect(slide, Inches(0.6), Inches(4.2), Inches(11.9), Inches(1.6), NAVY)
+    add_text_box(slide, Inches(0.9), Inches(4.25), Inches(3), Inches(0.3),
+                 "POTENTIAL IMPACT", 10, ORANGE, True)
+    for i, (big, desc) in enumerate(impacts):
+        x = Inches(0.8 + i * 3.05)
+        add_text_box(slide, x, Inches(4.55), Inches(2.7), Inches(0.5),
+                     big, 24, ORANGE, True, PP_ALIGN.CENTER)
+        add_text_box(slide, x, Inches(5.05), Inches(2.7), Inches(0.45),
+                     desc, 9, WHITE, False, PP_ALIGN.CENTER)
+    add_text_box(slide, Inches(0.9), Inches(5.6), Inches(11.5), Inches(0.4),
+                 tagline, 11, WHITE, False, PP_ALIGN.CENTER)
 
-build_data = [
-    ["Week", "Deliverable"],
-    ["1-2", "Cash flow prediction model from CommerceHub data"],
-    ["3", "Finxact sweep/unsweep API integration"],
-    ["4", "INDX instant liquidity path (simulated)"],
-    ["5", "Clover dashboard widget + demo polish"],
-]
-add_table(slide, Inches(7.0), Inches(2.0), Inches(5.5), Inches(2.5), 5, 2, build_data,
-          [Inches(0.8), Inches(4.7)])
-
-# Demo script
-add_rounded_rect(slide, Inches(7.0), Inches(4.8), Inches(5.5), Inches(2.0), NAVY)
-add_multi_text(slide, Inches(7.3), Inches(4.9), Inches(5.0), Inches(1.8), [
-    ("Demo Script", 14, ORANGE, True, PP_ALIGN.LEFT),
-    ("\"This restaurant earned $847 last month without doing anything. One toggle in Clover. We sweep excess cash into yield-bearing FIUSD on Finxact. When they need cash, it's back instantly via INDX.\"", 11, WHITE, False, PP_ALIGN.LEFT),
-])
-
-
-# ============================================================
-# SLIDE 15: PROTOTYPE 2 - PAY-BY-AGENT
-# ============================================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, WHITE)
-add_shape(slide, Inches(0), Inches(0), W, Inches(0.08), ORANGE)
-
-add_rounded_rect(slide, Inches(0.8), Inches(0.35), Inches(1.8), Inches(0.35), ORANGE)
-add_text_box(slide, Inches(0.8), Inches(0.37), Inches(1.8), Inches(0.3),
-             "PROTOTYPE 2", 11, WHITE, True, PP_ALIGN.CENTER)
-
-add_text_box(slide, Inches(2.8), Inches(0.3), Inches(9), Inches(0.6),
-             "Pay-by-Agent: x402 Commerce", 32, NAVY, True)
-add_text_box(slide, Inches(0.8), Inches(0.9), Inches(11), Inches(0.4),
-             "\"First working demo of an AI agent purchasing on a production payment platform\"", 14, MED_GRAY)
-
-# x402 Flow
-add_text_box(slide, Inches(0.8), Inches(1.5), Inches(5.5), Inches(0.4),
-             "x402 Payment Flow", 18, NAVY, True)
-
-x402_steps = [
-    ("1. AI Agent", "HTTP GET /product\n(Claude, GPT, or custom agent)", TEAL),
-    ("2. CommerceHub x402 Gateway", "Returns HTTP 402 + X-PAYMENT\n(price, FIUSD address, chain)", ORANGE),
-    ("3. Agent Signs & Retries", "X-PAYMENT header with\nEIP-3009 signed payload", NAVY),
-    ("4. Verify + Settle", "Validate signature, check\nFinxact limits, settle on-chain", GREEN),
-]
-
-for i, (title, desc, color) in enumerate(x402_steps):
-    y = Inches(2.0 + i * 1.1)
-    add_rounded_rect(slide, Inches(0.8), y, Inches(5.5), Inches(0.9), LIGHT_GRAY)
-    add_shape(slide, Inches(0.8), y, Inches(0.08), Inches(0.9), color)
-    add_text_box(slide, Inches(1.1), y + Inches(0.05), Inches(5.0), Inches(0.35),
-                 title, 13, color, True)
-    add_text_box(slide, Inches(1.1), y + Inches(0.38), Inches(5.0), Inches(0.45),
-                 desc, 11, DARK_GRAY)
-
-# Right side
-add_text_box(slide, Inches(7.0), Inches(1.5), Inches(5.5), Inches(0.4),
-             "Build Plan: 5 Weeks", 18, NAVY, True)
-
-build_data2 = [
-    ["Week", "Deliverable"],
-    ["1-2", "x402 endpoint + HTTP 402 response per spec v2"],
-    ["3", "Fiserv Agent SDK (TypeScript + Python)"],
-    ["4", "INDX auto-settlement + demo agent build"],
-    ["5", "CommerceHub dashboard integration + demo"],
-]
-add_table(slide, Inches(7.0), Inches(2.0), Inches(5.5), Inches(2.5), 5, 2, build_data2,
-          [Inches(0.8), Inches(4.7)])
-
-# Demo + distribution advantage
-add_rounded_rect(slide, Inches(7.0), Inches(4.8), Inches(5.5), Inches(2.0), NAVY)
-add_multi_text(slide, Inches(7.3), Inches(4.9), Inches(5.0), Inches(1.8), [
-    ("Demo Script", 14, ORANGE, True, PP_ALIGN.LEFT),
-    ("\"Watch: I ask an AI agent to buy running shoes. It finds the product, discovers the x402 endpoint, pays with FIUSD, gets a receipt -- in under 3 seconds. No human auth needed.\"", 11, WHITE, False, PP_ALIGN.LEFT),
-    ("Distribution: 6M merchants agent-payable with one software update", 11, ORANGE, True, PP_ALIGN.LEFT),
-])
+    return slide
 
 
-# ============================================================
-# SLIDE 16: PROTOTYPE 3 - SUPPLIER PAY
-# ============================================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, WHITE)
-add_shape(slide, Inches(0), Inches(0), W, Inches(0.08), ORANGE)
+# SLIDE 14: Yield Sweep
+build_prototype_slide(prs, 1, "Merchant Yield Sweep",
+    problem_text="SMB merchants on Clover hold $15K-$50K in idle settlement balances earning zero interest. 99% of small businesses consume zero treasury management services. Across 6M merchant locations, billions sit dormant -- generating no yield for merchants and no revenue for Fiserv.",
+    solution_text="AI-powered treasury agent auto-sweeps idle merchant balances into yield-bearing FIUSD positions on Finxact. ML model predicts cash needs using 180 days of CommerceHub transaction history. Configurable risk tolerance. Instant unsweep via INDX when cash is needed. One toggle in Clover to enable.",
+    steps=[
+        ("1", "Settlement data feeds into AI Treasury Agent from Clover/CommerceHub"),
+        ("2", "ML model predicts 3-day outflows with seasonal adjustment (87% confidence)"),
+        ("3", "Decision Gate validates safeguards: hard floor, gradual ramp, depeg check"),
+        ("4", "Approved excess sweeps to FIUSD yield position on Finxact (4.2% APY)"),
+        ("5", "INDX provides instant USD liquidity when merchant needs cash back"),
+    ],
+    impacts=[
+        ("$847/mo", "Per merchant\nearnings on idle cash"),
+        ("$750M/yr", "Revenue at full\npenetration (6M merchants)"),
+        ("4.2% APY", "Yield on FIUSD\nvia Finxact"),
+        ("Zero effort", "One toggle in Clover\nfully automated"),
+    ],
+    tagline="Fiserv becomes the ONLY payment processor that helps merchants earn money, not just spend it."
+)
 
-add_rounded_rect(slide, Inches(0.8), Inches(0.35), Inches(1.8), Inches(0.35), ORANGE)
-add_text_box(slide, Inches(0.8), Inches(0.37), Inches(1.8), Inches(0.3),
-             "PROTOTYPE 3", 11, WHITE, True, PP_ALIGN.CENTER)
+# SLIDE 15: Agent Pay
+build_prototype_slide(prs, 2, "Pay-by-Agent x402 Commerce",
+    problem_text="AI shopping agents (Claude, GPT) can browse and compare, but cannot buy. Card rails require human-in-the-loop authentication (3DS, CVV entry). This breaks the autonomous agentic flow entirely. Plus: 2-3% interchange fees and T+1 to T+3 settlement delays for merchants.",
+    solution_text="CommerceHub exposes x402-compatible Agent Checkout endpoint. AI agents discover payment requirements, sign FIUSD payments (EIP-3009), and complete purchases in a single HTTP cycle -- under 3 seconds, fully autonomous. Bank-verified identity via Finxact KYC. Configurable spending guardrails.",
+    steps=[
+        ("1", "AI agent sends HTTP GET to CommerceHub merchant catalog"),
+        ("2", "Gateway returns HTTP 402 Payment Required + payment instructions"),
+        ("3", "Agent signs FIUSD payment via EIP-3009 on Solana/Base"),
+        ("4", "Verifier checks signature, Finxact KYC tier, spending limits"),
+        ("5", "Settler executes on-chain; INDX settles merchant in USD instantly"),
+        ("6", "Agent receives cryptographic receipt -- all in under 3 seconds"),
+    ],
+    impacts=[
+        ("6M", "Merchants agent-payable\nwith one software update"),
+        ("<3 sec", "End-to-end purchase\nfully autonomous"),
+        ("0.1%", "Agent payment fee\nvs 2.9% card interchange"),
+        ("$150M/yr", "Revenue by 2030\nat scale"),
+    ],
+    tagline="Stripe convinces merchants one at a time. Fiserv flips a switch for 6 million."
+)
 
-add_text_box(slide, Inches(2.8), Inches(0.3), Inches(9), Inches(0.6),
-             "Instant Supplier Pay", 32, NAVY, True)
-add_text_box(slide, Inches(0.8), Inches(0.9), Inches(11), Inches(0.4),
-             "\"Restaurant saved $1,200/month via AI-driven procurement and instant FIUSD settlement\"", 14, MED_GRAY)
+# SLIDE 16: Supplier Pay
+build_prototype_slide(prs, 3, "Instant Supplier Pay",
+    problem_text="Restaurants on Clover place 15-30 supply orders/week. Each costs 2-3% in card interchange ($1,000-$1,500/month). Distributors wait 2-5 days for settlement. Early-pay discounts (2%/net-10) go uncaptured. A restaurant doing $50K/month in supplies loses $2,500/month in total waste.",
+    solution_text="AI procurement agent monitors ingredient usage via Clover sales data, predicts reorder needs using ML, auto-generates POs grouped by supplier, pays instantly in FIUSD via CommerceHub. Supplier receives USD via INDX in 2.7 seconds. Early-pay discounts captured automatically.",
+    steps=[
+        ("1", "Clover POS tracks every sale; BOM maps menu items to ingredients"),
+        ("2", "ML model predicts ingredient depletion (e.g., chicken in 2 days)"),
+        ("3", "AI agent auto-generates POs grouped by supplier with MOQ enforcement"),
+        ("4", "Early-pay discount applied (2% if paid within 24h vs net-30)"),
+        ("5", "FIUSD payment via Finxact; supplier gets USD via INDX in 2.7 seconds"),
+    ],
+    impacts=[
+        ("$1,200/mo", "Per merchant savings\n(fees + discounts)"),
+        ("2.7 sec", "Supplier settlement\n(vs 2-5 days)"),
+        ("0%", "Card interchange\non supply orders"),
+        ("$690M/yr", "Revenue potential\nat full penetration"),
+    ],
+    tagline="Both merchant and supplier on Fiserv rails. Card fees eliminated. Discounts captured automatically."
+)
 
-# Before/After comparison
-add_text_box(slide, Inches(0.8), Inches(1.5), Inches(5.5), Inches(0.4),
-             "Today: Manual & Expensive", 18, RED, True)
+# SLIDE 17: Cross-Border
+build_prototype_slide(prs, 4, "Cross-Border Instant Settlement",
+    problem_text="Cross-border card processing costs 3-5% in fees plus 2-4% FX markup. Settlement takes T+3 days through 4 intermediaries. A $1,000 MXN-to-USD transaction costs the merchant $47-$60 in fees. $6.3 trillion in cross-border e-commerce annually.",
+    solution_text="CommerceHub auto-detects cross-border transactions (currency mismatch), converts local currency to FIUSD at real-time FX rates with 30-second rate lock, and settles merchant in USD via INDX in 3 seconds. Stablecoin is transport only -- merchant always receives dollars.",
+    steps=[
+        ("1", "International buyer pays in local currency (MXN, EUR, GBP)"),
+        ("2", "CommerceHub detects currency mismatch, identifies corridor"),
+        ("3", "FX engine locks rate for 30 seconds, converts to FIUSD on Solana"),
+        ("4", "OFAC/sanctions screening passes (GENIUS Act compliant)"),
+        ("5", "INDX converts FIUSD to USD, settles to merchant bank in 3 seconds"),
+    ],
+    impacts=[
+        ("$55 saved", "Per $1,000 cross-border\ntransaction"),
+        ("91.7%", "Cost reduction vs\ntraditional card rails"),
+        ("3 sec", "Settlement time\n(vs 3 business days)"),
+        ("$350M/yr", "Revenue at 70bps on\n$50B cross-border volume"),
+    ],
+    tagline="$6.3T cross-border e-commerce market. 90% cost reduction. Settlement in seconds, not days."
+)
 
-today_items = [
-    "Restaurant orders supplies by phone/email",
-    "Pays distributor by card (2-3% fee)",
-    "Distributor waits 2-5 days for settlement",
-    "Manual reconciliation across systems",
-    "No early-payment discounts captured",
-]
-for i, item in enumerate(today_items):
-    add_shape(slide, Inches(1.0), Inches(2.1 + i * 0.42), Inches(0.12), Inches(0.12), RED)
-    add_text_box(slide, Inches(1.3), Inches(2.0 + i * 0.42), Inches(5.0), Inches(0.4),
-                 item, 12, DARK_GRAY)
-
-add_text_box(slide, Inches(7.0), Inches(1.5), Inches(5.5), Inches(0.4),
-             "With Fiserv: AI-Driven & Instant", 18, GREEN, True)
-
-future_items = [
-    "AI agent monitors ingredient usage in Clover",
-    "Auto-generates POs based on predicted depletion",
-    "Pays instantly in FIUSD (zero card fees)",
-    "Distributor gets USD via INDX in 3 seconds",
-    "2% early-payment discount captured automatically",
-]
-for i, item in enumerate(future_items):
-    add_shape(slide, Inches(7.2), Inches(2.1 + i * 0.42), Inches(0.12), Inches(0.12), GREEN)
-    add_text_box(slide, Inches(7.5), Inches(2.0 + i * 0.42), Inches(5.0), Inches(0.4),
-                 item, 12, DARK_GRAY)
-
-# Impact metrics
-metrics = [
-    ("$1,200/mo", "Merchant savings via\nearly-pay discounts"),
-    ("3 seconds", "Supplier settlement\n(vs 2-5 days)"),
-    ("0%", "Card interchange\n(vs 2-3%)"),
-    ("100%", "Automated\nreconciliation"),
-]
-
-for i, (big, desc) in enumerate(metrics):
-    x = Inches(0.8 + i * 3.1)
-    add_rounded_rect(slide, x, Inches(4.5), Inches(2.8), Inches(1.4), LIGHT_GRAY)
-    add_text_box(slide, x + Inches(0.2), Inches(4.6), Inches(2.4), Inches(0.6),
-                 big, 28, ORANGE, True, PP_ALIGN.CENTER)
-    add_text_box(slide, x + Inches(0.2), Inches(5.2), Inches(2.4), Inches(0.6),
-                 desc, 11, DARK_GRAY, False, PP_ALIGN.CENTER)
-
-# Bottom
-add_rounded_rect(slide, Inches(0.8), Inches(6.2), Inches(11.7), Inches(0.8), NAVY)
-add_text_box(slide, Inches(1.2), Inches(6.3), Inches(11), Inches(0.6),
-             "Both merchant and supplier are on Fiserv rails. Neither touches a card. B2B payments move from cost center to efficiency engine.", 13, WHITE, False, PP_ALIGN.CENTER)
-
-
-# ============================================================
-# SLIDE 17: PROTOTYPE 4 - CROSS-BORDER
-# ============================================================
-slide = prs.slides.add_slide(prs.slide_layouts[6])
-add_bg(slide, WHITE)
-add_shape(slide, Inches(0), Inches(0), W, Inches(0.08), ORANGE)
-
-add_rounded_rect(slide, Inches(0.8), Inches(0.35), Inches(1.8), Inches(0.35), ORANGE)
-add_text_box(slide, Inches(0.8), Inches(0.37), Inches(1.8), Inches(0.3),
-             "PROTOTYPE 4", 11, WHITE, True, PP_ALIGN.CENTER)
-
-add_text_box(slide, Inches(2.8), Inches(0.3), Inches(9), Inches(0.6),
-             "Cross-Border Instant Settlement", 32, NAVY, True)
-add_text_box(slide, Inches(0.8), Inches(0.9), Inches(11), Inches(0.4),
-             "$190 trillion annual market  |  90% cost reduction  |  Settlement in seconds, not days", 14, MED_GRAY)
-
-# Side by side comparison
-add_text_box(slide, Inches(0.8), Inches(1.5), Inches(5.5), Inches(0.4),
-             "Traditional Card Rails", 18, RED, True)
-
-add_rounded_rect(slide, Inches(0.8), Inches(2.0), Inches(5.5), Inches(3.5), RGBColor(0xFF, 0xEB, 0xEE))
-trad_items = [
-    ("Cost:", "3-5% cross-border fee"),
-    ("FX:", "2-4% markup on conversion"),
-    ("Settlement:", "T+3 days via card networks"),
-    ("Reconciliation:", "Manual, complex"),
-    ("Example:", "$1,000 payment = $47.50 in fees"),
-]
-for i, (label, value) in enumerate(trad_items):
-    y = Inches(2.2 + i * 0.6)
-    add_text_box(slide, Inches(1.1), y, Inches(1.5), Inches(0.4), label, 13, RED, True)
-    add_text_box(slide, Inches(2.6), y, Inches(3.5), Inches(0.4), value, 13, DARK_GRAY)
-
-add_text_box(slide, Inches(7.0), Inches(1.5), Inches(5.5), Inches(0.4),
-             "Fiserv FIUSD Rails", 18, GREEN, True)
-
-add_rounded_rect(slide, Inches(7.0), Inches(2.0), Inches(5.5), Inches(3.5), RGBColor(0xE8, 0xF5, 0xE9))
-fiserv_items = [
-    ("Cost:", "~0.5% total"),
-    ("FX:", "Real-time via FIUSD bridge"),
-    ("Settlement:", "3 seconds via INDX"),
-    ("Reconciliation:", "Automated, on-chain"),
-    ("Example:", "$1,000 payment = $5.00 in fees"),
-]
-for i, (label, value) in enumerate(fiserv_items):
-    y = Inches(2.2 + i * 0.6)
-    add_text_box(slide, Inches(7.3), y, Inches(1.5), Inches(0.4), label, 13, GREEN, True)
-    add_text_box(slide, Inches(8.8), y, Inches(3.5), Inches(0.4), value, 13, DARK_GRAY)
-
-# Savings callout
-add_rounded_rect(slide, Inches(0.8), Inches(5.8), Inches(11.7), Inches(1.2), NAVY)
-add_multi_text(slide, Inches(1.2), Inches(5.9), Inches(11), Inches(1.0), [
-    ("$42.50 saved per $1,000 cross-border transaction", 22, ORANGE, True, PP_ALIGN.CENTER),
-    ("Cross-border payments are a $190T annual market. This is not a feature -- it's a new business line.", 14, WHITE, False, PP_ALIGN.CENTER),
-])
 
 
 # ============================================================
