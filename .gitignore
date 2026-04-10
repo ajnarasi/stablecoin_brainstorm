@@ -35,3 +35,6 @@ Thumbs.db
 # Claude internal
 .claude/plans/
 .claude/projects/
+
+# Microsoft Office lock files
+~$*

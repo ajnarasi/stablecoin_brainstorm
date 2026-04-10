@@ -8,6 +8,7 @@ import Prototype2Page from './pages/Prototype2Page'
 import Prototype3Page from './pages/Prototype3Page'
 import Prototype4Page from './pages/Prototype4Page'
 import ShowcasePage from './pages/ShowcasePage'
+import CloverCnpShowcasePage from './pages/CloverCnpShowcasePage'
 
 function StandardLayout() {
   return (
@@ -25,6 +26,7 @@ function App() {
       <Routes>
         {/* Showcase: cinematic full-screen, no Navbar/Footer */}
         <Route path="/showcase" element={<ShowcasePage />} />
+        <Route path="/clover-cnp-showcase" element={<CloverCnpShowcasePage />} />
 
         {/* Standard pages with Navbar + Footer */}
         <Route element={<StandardLayout />}>
